@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthService } from './lib/services/authService';
-import { authMiddleware } from './lib/middleware/authMiddleware';
 
 // 認証が不要なパス
 const publicPaths = [
@@ -17,7 +15,7 @@ const publicPaths = [
  * ミドルウェア関数
  * @param req リクエストオブジェクト
  */
-export async function middleware(req: NextRequest) {
+export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // パブリックパスのチェック
@@ -30,13 +28,29 @@ export async function middleware(req: NextRequest) {
   
   // 認証が必要なAPIエンドポイントのみ処理
   if (isApiRequest && !isPublicPath) {
-    // 認証ミドルウェアを実行
-    const authResponse = await authMiddleware(req);
+    // 認証トークンを確認
+    const authHeader = req.headers.get('Authorization');
     
-    // 認証ミドルウェアがレスポンスを返した場合（認証エラー）
-    if (authResponse) {
-      return authResponse;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: '認証が必要です。' },
+        { status: 401 }
+      );
     }
+    
+    // 認証の詳細な検証はAPI側で行い、ここではトークンの存在確認のみ
+    const token = authHeader.split(' ')[1];
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: '有効なトークンが必要です。' },
+        { status: 401 }
+      );
+    }
+    
+    // トークンがあればリクエストを継続
+    // 実際の検証はAPIルートで行う
+    return NextResponse.next();
   }
 
   // 公開パスまたは非APIリクエストは処理せずに続行
